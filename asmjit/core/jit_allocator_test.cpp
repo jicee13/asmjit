@@ -407,6 +407,31 @@ TEST_CASE(core_jit_allocator) {
   test_jit_allocator_query();
 }
 
+TEST_CASE(core_jit_allocator_thp) {
+  VirtMem::HardenedRuntimeInfo runtime_info = VirtMem::hardened_runtime_info();
+  for (JitAllocatorOptions mapping_option : {JitAllocatorOptions::kNone, JitAllocatorOptions::kUseDualMapping}) {
+    if (mapping_option == JitAllocatorOptions::kUseDualMapping &&
+        !runtime_info.has_flag(VirtMem::HardenedRuntimeFlags::kDualMapping)) {
+      continue;
+    }
+    JitAllocator::CreateParams params;
+    params.options = mapping_option | JitAllocatorOptions::kUseTransparentHugePages;
+    params.block_size = 2u * 1024u * 1024u;
+    JitAllocator allocator(&params);
+    JitAllocator::Span span;
+
+    EXPECT_OK(allocator.alloc(Out(span), 1024));
+    EXPECT_NOT_NULL(span.rx());
+    EXPECT_NOT_NULL(span.rw());
+    {
+      VirtMem::ProtectJitReadWriteScope scope(span.rw(), span.size());
+      memset(span.rw(), 0xA5, span.size());
+    }
+    EXPECT_EQ(static_cast<uint8_t*>(span.rx())[span.size() - 1], uint8_t(0xA5));
+    EXPECT_OK(allocator.release(span.rx()));
+  }
+}
+
 ASMJIT_END_NAMESPACE
 
 #endif // ASMJIT_TEST && !ASMJIT_NO_JIT

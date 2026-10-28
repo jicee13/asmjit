@@ -218,6 +218,18 @@ ASMJIT_DEFINE_ENUM_FLAGS(MemoryFlags)
 [[nodiscard]]
 ASMJIT_API Error alloc(void** p, size_t size, MemoryFlags flags) noexcept;
 
+//! Allocates anonymous memory on Linux with a caller-selected alignment, optionally with large page advice.
+//!
+//! Alignment must be a power of two and at least the system page size. Size must be a nonzero multiple of alignment.
+//! Shared mappings and explicit large pages are not supported. Release with the original size using \ref release().
+//!
+//! With \ref MemoryFlags::kMAdviseLargePages, advice is applied after alignment. The caller is responsible for
+//! checking kernel policy; alignment does not select a page size or guarantee large page backing. Unlike \ref alloc(),
+//! failed advice releases the mapping and returns an error. The caller can retry without advice.
+//! Unsupported platforms return \ref Error::kFeatureNotEnabled. On failure, `p` is set to `nullptr`.
+[[nodiscard]]
+ASMJIT_API Error alloc_aligned(void** p, size_t size, size_t alignment, MemoryFlags flags) noexcept;
+
 //! Releases virtual memory previously allocated by \ref VirtMem::alloc().
 //!
 //! \note The size must be the same as used by \ref VirtMem::alloc(). If the size is not the same value the call
